@@ -4,6 +4,9 @@ inputs:
   api-key:
     description: "An API key with a PluginPublisher role"
     required: true
+  github-token:
+    description: "GitHub token to use"
+    required: true
 outputs:
   url:
     description: "URL to the release asset"
@@ -15,11 +18,13 @@ runs:
   using: "composite"
   steps:
     - name: Sign plugin
+      shell: bash
       run: yarn run grafana-toolkit plugin:sign
       env:
         GRAFANA_API_KEY: ${{ inputs.api-key }}
 
     - name: Get plugin information
+      shell: bash
       run: |
         sudo apt-get install jq
 
@@ -37,6 +42,7 @@ runs:
         echo "GRAFANA_PLUGIN_ARTIFACT_CHECKSUM=${GRAFANA_PLUGIN_ARTIFACT_CHECKSUM}" >> $GITHUB_ENV
 
     - name: Package plugin
+      shell: bash
       run: |
         mv dist $GRAFANA_PLUGIN_ID
         zip $GRAFANA_PLUGIN_ARTIFACT $GRAFANA_PLUGIN_ID -r
@@ -46,7 +52,7 @@ runs:
       id: create_release
       uses: actions/create-release@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
       with:
         tag_name: ${{ github.ref }}
         release_name: Release ${{ github.ref }}
@@ -57,7 +63,7 @@ runs:
       id: upload-plugin-asset
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./${{ env.GRAFANA_PLUGIN_ARTIFACT }}
@@ -68,7 +74,7 @@ runs:
       id: upload-checksum-asset
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./${{ env.GRAFANA_PLUGIN_ARTIFACT_CHECKSUM }}
@@ -77,5 +83,6 @@ runs:
 
     - name: Set MD5 output
       id: set-md5-output
+      shell: bash
       run: |
         run: echo "::set-output name=md5::$(cat ./${{ env.GRAFANA_PLUGIN_ARTIFACT_CHECKSUM }} | cut -d' ' -f1)"
